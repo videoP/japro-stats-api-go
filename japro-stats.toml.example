@@ -1,0 +1,28 @@
+# Address and port to listen on
+port = ":80"
+
+# Absolute path to the SQLite database (read-only)
+db_path = "/opt/jkaserver/GameData/japro/data.db"
+
+# URL path for the stats API endpoint (POST only)
+api_path = "/update"
+
+# Optional TLS — uncomment and set paths to enable HTTPS
+# tls_cert = "/etc/letsencrypt/live/yourdomain/fullchain.pem"
+# tls_key  = "/etc/letsencrypt/live/yourdomain/privkey.pem"
+
+# API credentials (plaintext — chmod 600 this file)
+[users]
+user1 = "changeme"
+# user2 = "changeme2"
+
+# Static file directories — add as many blocks as needed
+# URL: http://yourserver/demos/file.dm_26
+# Disk: /opt/jkaserver/GameData/japro/demos/file.dm_26
+[[static]]
+url_path = "/demos"
+fs_path  = "/opt/jkaserver/GameData/japro/demos"
+
+# [[static]]
+# url_path = "/races"
+# fs_path  = "/opt/jkaserver/GameData/japro/demos/races"
