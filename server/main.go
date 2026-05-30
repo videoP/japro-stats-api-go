@@ -161,9 +161,10 @@ func runQuery(qtype string, lastUpdate int64) ([][]interface{}, error) {
 		)
 	case "race_demos":
 		return scan(
-			`SELECT username, coursename, style
-			 FROM LocalRun WHERE last_update > ?
-			 GROUP BY coursename, style`,
+			`SELECT username, coursename, style, MIN(duration_ms)
+			 FROM LocalRun WHERE rank = 1 AND end_time > ?
+			 GROUP BY username, coursename, style
+			 ORDER BY end_time DESC`,
 			lastUpdate,
 		)
 	case "duels":
@@ -183,6 +184,22 @@ func runQuery(qtype string, lastUpdate int64) ([][]interface{}, error) {
 		return scan(`SELECT name, tag, longname, flags FROM LocalTeam`)
 	case "team_accounts":
 		return scan(`SELECT team, account, flags FROM LocalTeamAccount`)
+	case "race_alerts":
+		return scan(
+			`SELECT r.username, r.coursename, r.style, r.duration_ms, r.rank, r.entries,
+			        COALESCE(fs.second_time - fs.first_time, 0) as delta
+			 FROM LocalRun r
+			 LEFT JOIN (
+			     SELECT coursename, style,
+			         MIN(CASE WHEN rank = 1 THEN duration_ms END) as first_time,
+			         MIN(CASE WHEN rank = 2 THEN duration_ms END) as second_time
+			     FROM LocalRun WHERE rank IN (1, 2)
+			     GROUP BY coursename, style
+			 ) fs ON r.coursename = fs.coursename AND r.style = fs.style
+			 WHERE r.rank = 1 AND r.end_time > ?
+			 ORDER BY r.end_time ASC`,
+			lastUpdate,
+		)
 	default:
 		return nil, fmt.Errorf("unknown type %q", qtype)
 	}
