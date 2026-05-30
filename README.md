@@ -51,6 +51,10 @@ go build -buildvcs=false -o bin/japro-stats ./server
 go build -buildvcs=false -o bin/japro-stats.exe ./server
 ```
 
+## Using alongside Apache / nginx
+
+If you already have a web server handling static files, just remove or comment out all `[[static]]` blocks in the toml. japro-stats will run API-only on whatever port you configure, and your existing web server continues serving files as normal. Run japro-stats on a non-conflicting port (e.g. `:8080`) and proxy or point your client directly at it.
+
 ## Deployment
 
 See [INSTALL.md](INSTALL.md) for full Linux install instructions.
