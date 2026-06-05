@@ -18,13 +18,14 @@ import (
 )
 
 type Config struct {
-	Port    string            `toml:"port"`
-	DBPath  string            `toml:"db_path"`
-	APIPath string            `toml:"api_path"`
-	TLSCert string            `toml:"tls_cert"`
-	TLSKey  string            `toml:"tls_key"`
-	Users   map[string]string `toml:"users"`
-	Static  []StaticDir       `toml:"static"`
+	Port          string            `toml:"port"`
+	DBPath        string            `toml:"db_path"`
+	APIPath       string            `toml:"api_path"`
+	TLSCert       string            `toml:"tls_cert"`
+	TLSKey        string            `toml:"tls_key"`
+	CosmeticsPath string            `toml:"cosmetics_path"`
+	Users         map[string]string `toml:"users"`
+	Static        []StaticDir       `toml:"static"`
 }
 
 type StaticDir struct {
@@ -78,7 +79,7 @@ func main() {
 		if !strings.HasSuffix(urlPath, "/") {
 			urlPath += "/"
 		}
-		mux.Handle(urlPath, http.StripPrefix(urlPath, http.FileServer(http.Dir(fsPath))))
+		mux.Handle(urlPath, http.StripPrefix(urlPath, downloadHandler(http.FileServer(http.Dir(fsPath)))))
 	}
 
 	srv := &http.Server{
@@ -95,6 +96,16 @@ func main() {
 	} else {
 		log.Fatal(srv.ListenAndServe())
 	}
+}
+
+func downloadHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".cfg") {
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Header().Set("Content-Disposition", "attachment")
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func handleAPI(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +134,22 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := runQuery(qtype, lastUpdate)
+	var result [][]interface{}
+	switch qtype {
+	case "check_password":
+		player := sanitize(r.FormValue("player"))
+		playerPass := sanitizeN(r.FormValue("player_password"), 64)
+		var ok bool
+		ok, err = checkPlayerPassword(player, playerPass)
+		if err == nil {
+			result = [][]interface{}{{ok}}
+		}
+	case "cosmetics":
+		result, err = readCosmetics()
+	default:
+		result, err = runQuery(qtype, lastUpdate)
+	}
+
 	if err != nil {
 		log.Printf("query %q: %v", qtype, err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -143,11 +169,60 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 func sanitize(s string) string {
+	return sanitizeN(s, 16)
+}
+
+func sanitizeN(s string, n int) string {
 	s = strings.TrimSpace(s)
-	if len(s) > 16 {
-		s = s[:16]
+	if len(s) > n {
+		s = s[:n]
 	}
 	return s
+}
+
+func checkPlayerPassword(player, pass string) (bool, error) {
+	var stored string
+	err := db.QueryRow(`SELECT password FROM LocalAccount WHERE username = ?`, player).Scan(&stored)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return stored == pass, nil
+}
+
+func readCosmetics() ([][]interface{}, error) {
+	data, err := os.ReadFile(cfg.CosmeticsPath)
+	if err != nil {
+		return nil, err
+	}
+	var out [][]interface{}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, ";", 4)
+		if len(parts) != 4 {
+			continue
+		}
+		bit, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+		if err != nil {
+			continue
+		}
+		coursename := strings.TrimSpace(parts[1])
+		style, err := strconv.Atoi(strings.TrimSpace(parts[2]))
+		if err != nil {
+			continue
+		}
+		ms, err := strconv.Atoi(strings.TrimSpace(parts[3]))
+		if err != nil {
+			continue
+		}
+		out = append(out, []interface{}{bit, coursename, style, ms})
+	}
+	return out, nil
 }
 
 func runQuery(qtype string, lastUpdate int64) ([][]interface{}, error) {

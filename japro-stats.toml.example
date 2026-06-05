@@ -4,6 +4,9 @@ port = ":80"
 # Absolute path to the SQLite database (read-only)
 db_path = "/opt/jkaserver/GameData/japro/data.db"
 
+# Path to cosmetics.cfg (parallel to the .db file)
+cosmetics_path = "/opt/jkaserver/GameData/japro/cosmetics.cfg"
+
 # URL path for the stats API endpoint (POST only)
 api_path = "/update"
 
