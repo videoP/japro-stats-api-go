@@ -251,7 +251,7 @@ func runQuery(qtype string, lastUpdate int64) ([][]interface{}, error) {
 		)
 	case "accounts":
 		return scan(
-			`SELECT username, kills, deaths, suicides, captures, returns, lastlogin, created, master
+			`SELECT username, kills, deaths, suicides, captures, returns, lastlogin, created, master, unlocks
 			 FROM LocalAccount WHERE lastlogin > ? ORDER BY lastlogin DESC`,
 			lastUpdate,
 		)
